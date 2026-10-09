@@ -13,7 +13,7 @@ class Usuario(Base):
     nome    = Column("nome", String)
     email   = Column("email", String, nullable=False)
     senha   = Column("senha", String)
-    ativo   = Column("ativo", Boolean)
+    ativo   = Column("ativo", Boolean, default=True)
     admin   = Column("admin", Boolean, default=False)
 
     def __init__(self, nome, email, senha, ativo, admin):
