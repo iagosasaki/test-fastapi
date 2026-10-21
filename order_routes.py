@@ -72,15 +72,75 @@ async def remover_item_pedido(id_item: int, session: Session = Depends(pegar_ses
     if not usuario.admin:
         raise HTTPException(status_code=403, detail="Usuário não autorizado a remover itens de pedidos")
     item = session.query(ItemPedido).filter(ItemPedido.id == id_item).first()
-    pedido = session.query(Pedido).filter(Pedido.id == item.pedido).first()
 
-    if item is None: 
+    if item is None:
         raise HTTPException(status_code=404, detail="Item não encontrado")
+    
+    pedido = session.query(Pedido).filter(Pedido.id == item.pedido).first()
+    
     session.delete(item)
     pedido.calcular_preco()
     session.commit()
     return {
         "mensagem": "Item removido do pedido com sucesso.",
-        "quantidade": len(pedido.itens),
+        "quantidade": len(pedido.item),
         "pedido": pedido
+    }
+
+#finalizar um pedido
+@order_router.post("/pedido/finalizar/{id_pedido}")
+async def finalizar_pedido(id_pedido: int, session: Session = Depends(pegar_sessao), usuario: Usuario = Depends(verificar_token)):
+    pedido = session.query(Pedido).filter(Pedido.id == id_pedido).first()
+
+    if pedido is None:
+        raise HTTPException(status_code=404, detail="Pedido não encontrado")
+
+    if pedido.usuario != usuario.id:
+        raise HTTPException(status_code=403, detail="Usuário não autorizado a finalizar este pedido")
+
+    pedido.status = "FINALIZADO"
+    session.commit()
+    return {"message": f"Pedido {id_pedido} finalizado com sucesso."}
+
+#visualizar 1 pedido
+@order_router.get("/pedido/{id_pedido}")
+async def visualizar_pedido(id_pedido: int, session: Session = Depends(pegar_sessao), usuario: Usuario = Depends(verificar_token)):
+    pedido = session.query(Pedido).filter(Pedido.id == id_pedido).first()
+
+    if pedido is None:
+        raise HTTPException(status_code=404, detail="Pedido não encontrado")
+
+    if pedido.usuario != usuario.id:
+        raise HTTPException(status_code=403, detail="Usuário não autorizado a consultar o pedido")
+
+    return {
+        "pedido": pedido 
+    }
+
+#visualizar todos os pedidos de um usuario
+@order_router.get("/listar-todos")
+async def listar_todos(session: Session = Depends(pegar_sessao), usuario: Usuario = Depends(verificar_token)):
+    pedidos = session.query(Pedido).join(ItemPedido).filter(Pedido.usuario == usuario.id).all()
+
+    if pedidos is None:
+        return {
+            "Message": "Nenhum pedido foi encontrado para o usuário"
+        }
+
+    
+    pedidosResponse = []
+    for pedido in pedidos:
+        for item in pedido.item:
+            itemResponse = {
+                "pedido": pedido.id,
+                "id": item.id,
+                "quantidade": item.quantidade,
+                "sabor": item.sabor,
+                "tamanho": item.tamanho,
+                "preco_unitario": item.preco_unitario
+            }
+            pedidosResponse.append(itemResponse)
+    
+    return {
+        "pedido": pedidosResponse
     }
