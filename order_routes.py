@@ -66,3 +66,21 @@ async def adicionar_item_pedido(itemPedidoSchema: ItemPedidoSchema, id_pedido: i
     pedido.calcular_preco() 
     session.commit()
     return {"message": f"Item adicionado ao pedido {id_pedido} com sucesso."}
+
+@order_router.post("/pedido/remover-item/{id_item}")
+async def remover_item_pedido(id_item: int, session: Session = Depends(pegar_sessao), usuario: Usuario = Depends(verificar_token)):
+    if not usuario.admin:
+        raise HTTPException(status_code=403, detail="Usuário não autorizado a remover itens de pedidos")
+    item = session.query(ItemPedido).filter(ItemPedido.id == id_item).first()
+    pedido = session.query(Pedido).filter(Pedido.id == item.pedido).first()
+
+    if item is None: 
+        raise HTTPException(status_code=404, detail="Item não encontrado")
+    session.delete(item)
+    pedido.calcular_preco()
+    session.commit()
+    return {
+        "mensagem": "Item removido do pedido com sucesso.",
+        "quantidade": len(pedido.itens),
+        "pedido": pedido
+    }
